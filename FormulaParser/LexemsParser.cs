@@ -27,6 +27,47 @@ namespace FormulaParser
 
     public class LexemsParser
     {
+
+        public List<string> ParseFile(string fname)
+        {
+            List<string> Results = new List<string>();
+            string[] lines = File.ReadAllLines(fname);
+            if (lines.Length > 0)
+            {
+                LexemsParser my = new LexemsParser();
+                foreach (string line in lines)
+                {
+                    List<Lexem> Lexems = my.LexAnalyze(line.Replace(" ", ""));
+                    if (Lexems == null)
+                    {
+                        Results.Add(line + " = Syntax error");
+                        continue;
+                    }
+                    LexemBuffer LexemBuffer = new LexemBuffer(Lexems);
+                    Results.Add(line + " = " + my.ParseExpression(LexemBuffer));
+                }
+            }
+            return Results;
+        }
+
+
+        public string ParseConsoleInput()
+        {
+            Console.WriteLine("Введіть математичний вираз:   наприклад  122 - 34 - 3* (55 + 5* (3 - 2)) / 2^6)");
+            string res;
+            string expressionText = Console.ReadLine();
+            expressionText = expressionText.Replace(" ", "");
+            List<Lexem> Lexems = LexAnalyze(expressionText);
+            if (Lexems != null)
+            {
+                LexemBuffer LexemBuffer = new LexemBuffer(Lexems);
+                res = ParseExpression(LexemBuffer);
+                Console.WriteLine();
+            }
+            else res = "Вираз містить невідомі токени - " + expressionText;
+            return res;
+        }
+
         public List<Lexem> LexAnalyze(string expText)
         {
             List<Lexem> Lexems = new List<Lexem>();
@@ -74,7 +115,7 @@ namespace FormulaParser
                             pos++;
 
                         if (start == pos)
-                            //throw new MyParserException("Неправильний формат виразу - "+expText);
+                            //throw new MyParserException("Вираз містить невідомі токени - "+expText);
                             return null;
 
                         Lexems.Add(new Lexem(LexemType.NUMBER, expText.Substring(start, pos - start)));
@@ -98,7 +139,7 @@ namespace FormulaParser
                 else
                 {
                     Lexems.Back();
-                    return PlusMinus(Lexems).ToString();
+                    return _PlusMinus(Lexems).ToString();
                 }
             }
             catch(MyParserException ex)
@@ -107,47 +148,47 @@ namespace FormulaParser
             }
         }
 
-        private double PlusMinus(LexemBuffer Lexems)
+        private double _PlusMinus(LexemBuffer Lexems)
         {
-            double value = MultDiv(Lexems);
+            double value = _MultDiv(Lexems);
             while (true)
             {
                 Lexem Lexem = Lexems.next();
                 switch (Lexem.type)
                 {
                     case LexemType.OP_PLUS:
-                        value += MultDiv(Lexems);
+                        value += _MultDiv(Lexems);
                         break;
                     case LexemType.OP_MINUS:
-                        value -= MultDiv(Lexems);
+                        value -= _MultDiv(Lexems);
                         break;
                     case LexemType.EOF:
                     case LexemType.RIGHT_BRACKET:
                         Lexems.Back();
                         return value;
                     default:
-                        throw new MyParserException("Unexpected token: " + Lexem.value
+                        throw new MyParserException("Syntax error: " + Lexem.type
                                 + " at position: " + Lexems.GetPos());
                 }
             }
         }
 
-        private double MultDiv(LexemBuffer Lexems)
+        private double _MultDiv(LexemBuffer Lexems)
         {
-            double value = Pow(Lexems);
+            double value = _Pow(Lexems);
             while (true)
             {
                 Lexem Lexem = Lexems.next();
                 switch (Lexem.type)
                 {
                     case LexemType.OP_MUL:
-                        value *= Pow(Lexems);
+                        value *= _Pow(Lexems);
                         break;
                     case LexemType.OP_DIV:
-                        value /= Pow(Lexems);
+                        value /= _Pow(Lexems);
                         break;
                     case LexemType.OP_MOD:
-                        value %= Pow(Lexems);
+                        value %= _Pow(Lexems);
                         break;
                     case LexemType.EOF:
                     case LexemType.RIGHT_BRACKET:
@@ -156,23 +197,23 @@ namespace FormulaParser
                         Lexems.Back();
                         return value;
                     default:
-                        throw new MyParserException("Unexpected token: " + Lexem.value
+                        throw new MyParserException("Syntax error: " + Lexem.type
                                 + " at position: " + Lexems.GetPos());
                 }
             }
         }
-        private double Pow(LexemBuffer Lexems)
+        private double _Pow(LexemBuffer Lexems)
         {
-            double value = Factor(Lexems);
+            double value = _Factor(Lexems);
             while (true)
             {
                 Lexem Lexem = Lexems.next();
                 switch (Lexem.type)
                 {
                     case LexemType.OP_POW:
-                        value = Math.Pow(value, Factor(Lexems));
+                        value = Math.Pow(value, _Factor(Lexems));
                         break;
-                    case LexemType.EOF:
+                    case LexemType.EOF:                     
                     case LexemType.RIGHT_BRACKET:
                     case LexemType.OP_PLUS:
                     case LexemType.OP_MINUS:
@@ -184,13 +225,13 @@ namespace FormulaParser
                         Lexems.Back();
                         return value;
                     default:
-                        throw new MyParserException("Unexpected token: " + Lexem.value
+                        throw new MyParserException("Syntax error: " + Lexem.type
                                 + " at position: " + Lexems.GetPos());
                 }
             }
         }
 
-        private double Factor(LexemBuffer Lexems)
+        private double _Factor(LexemBuffer Lexems)
         {
             Lexem Lexem = Lexems.next();
             switch (Lexem.type)
@@ -198,16 +239,16 @@ namespace FormulaParser
                 case LexemType.NUMBER:
                     return double.Parse(Lexem.value);
                 case LexemType.LEFT_BRACKET:
-                    double value = PlusMinus(Lexems);
+                    double value = _PlusMinus(Lexems);
                     Lexem = Lexems.next();
                     if (Lexem.type != LexemType.RIGHT_BRACKET)
                     {
-                        throw new MyParserException("Unexpected token: " + Lexem.value
+                        throw new MyParserException("Syntax error: " + Lexem.type
                                 + " at position: " + Lexems.GetPos());
                     }
                     return value;
                 default:
-                    throw new MyParserException("Unexpected token: " + Lexem.value
+                    throw new MyParserException("Syntax error: " + Lexem.type
                             + " at position: " + Lexems.GetPos());
             }
         }
