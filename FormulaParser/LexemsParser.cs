@@ -185,7 +185,9 @@ namespace FormulaParser
                         value *= _Pow(Lexems);
                         break;
                     case LexemType.OP_DIV:
-                        value /= _Pow(Lexems);
+                        double t = _Pow(Lexems);          
+                        if (t != 0d) value /= t;
+                        else throw new MyParserException("Division by zero! ");
                         break;
                     case LexemType.OP_MOD:
                         value %= _Pow(Lexems);
